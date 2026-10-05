@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ガジェット iframe埋め込み 確認ページ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    color: #232531;
+    background: #fafafa;
+  }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  h2 { font-size: 17px; margin: 40px 0 8px; border-left: 4px solid #eb874d; padding-left: 8px; }
+  h3 { font-size: 14px; margin: 16px 0 6px; }
+  .lead {
+    color: #656770;
+    font-size: 13px;
+    margin: 0 0 16px;
+  }
+  section {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 16px 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  /* --- シミュレーター --- */
+  .sim-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px 16px;
+    margin-bottom: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; font-weight: bold; color: #656770; }
+  .field input, .field select {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .field.checkbox { flex-direction: row; align-items: center; gap: 6px; }
+  .field.checkbox label { font-weight: normal; color: #232531; }
+  .sim-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 12px 0;
+  }
+  button {
+    cursor: pointer;
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  button.primary { background: #eb874d; border-color: #eb874d; color: #fff; font-weight: bold; }
+  .bg-swatches { display: flex; gap: 6px; }
+  .bg-swatches button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid #d0d0d0;
+  }
+  .url-box {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 10px 0 16px;
+  }
+  .url-box input {
+    flex: 1;
+    min-width: 0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    color: #656770;
+  }
+  .sim-stage {
+    padding: 24px;
+    border-radius: 8px;
+    transition: background 0.2s;
+    overflow: auto;
+  }
+  .sim-stage iframe {
+    display: block;
+    border: 0;
+  }
+
+  /* --- プリセット一覧 --- */
+  .preset-grid {
+    display: grid;
+    /* 縦型「大きいサイズ」プリセット(width=320)がカラム内で見切れないよう、320px+余白分を最小幅にする */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 16px;
+  }
+  .preset-card {
+    border: 1px dashed #d0d0d0;
+    border-radius: 6px;
+    padding: 10px;
+  }
+  .preset-card .caption {
+    font-size: 12px;
+    color: #656770;
+    margin-bottom: 8px;
+  }
+  .preset-card .caption code {
+    background: #f5f5f5;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .preset-card iframe { display: block; border: 0; max-width: 100%; }
+  /* 横型は972px等そのままの幅で見たいため、グリッドの列幅に収めず1行まるごと使う。
+     max-width:100%で縮めると972px未満の幅になり2段レイアウトに切り替わって高さがズレるため、縮めずそのまま表示する */
+  .preset-card.full-width { grid-column: 1 / -1; }
+  .preset-card.full-width iframe { max-width: none; }
+  .resize-demo {
+    resize: horizontal;
+    overflow: auto;
+    border: 2px dashed #eb874d;
+    padding: 8px;
+    width: 1000px;
+    max-width: 100%;
+  }
+  .resize-demo .hint {
+    font-size: 11px;
+    color: #eb874d;
+    margin-bottom: 6px;
+  }
+  .host-sample {
+    padding: 20px;
+    border-radius: 6px;
+  }
+  .host-sample.bg-white { background: #fff; }
+  .host-sample.bg-light { background: #eee; }
+  .host-sample.bg-dark { background: #232531; }
+  .host-sample.bg-color {
+    background: repeating-linear-gradient(45deg, #2b6cb0, #2b6cb0 16px, #1a365d 16px, #1a365d 32px);
+  }
+  .checklist {
+    font-size: 13px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+  <h1>ガジェット iframe埋め込み 確認ページ</h1>
+  <p class="lead">
+    スマートガジェット（縦型・横型）を店舗サイトにiframe埋め込みした際の見た目・挙動を確認するためのページです。
+    ebica manager（ネット予約設定 &gt; スマートガジェット）で設定できる項目は、ガジェットURLのクエリパラメータとして同じものが指定できます。
+  </p>
+  <p class="lead" style="color:#eb874d;">
+    ※注意: 本ページには「予約する」ボタンを持つiframeが多数並んでいます。立て続けに押すとブラウザのポップアップブロックが働き、途中から新規タブが開かなくなることがあります（コード側の不具合ではありません）。
+    新規タブが開く挙動自体を確認したい場合は、該当のガジェットURLを単体で別タブに開いて確認してください。
+  </p>
+
+  <section>
+    <h2>共通設定（ベースURL / sitecd / shopid）</h2>
+    <p class="lead">
+      ここで設定した値は、以降の全セクション（シミュレーター・プリセット一覧全て）に共通で使われます。
+      値を変えた後は下の「全セクションに反映する」を押してください。
+    </p>
+    <div class="sim-grid">
+      <div class="field">
+        <label for="baseUrl">ベースURL</label>
+        <input id="baseUrl" type="text" value="https://booking.dev.ebica.jp" />
+        <span style="font-size:11px;color:#97a0a9;">
+          booking.dev.ebica.jp（dev） / booking.stg.ebica.jp（stg） / booking.ebica.jp（prd）
+        </span>
+      </div>
+      <div class="field">
+        <label for="sitecd">sitecd</label>
+        <input id="sitecd" type="text" value="e014999996" />
+      </div>
+      <div class="field">
+        <label for="shopid">shopid</label>
+        <input id="shopid" type="text" value="2032" />
+      </div>
+    </div>
+    <div class="sim-toolbar">
+      <button class="primary" id="applyBtn">全セクションに反映する</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>① シミュレーター（全パラメータ）</h2>
+    <p class="lead">
+      manager画面の「ネット予約表示URL確認」で設定できる項目と同じものを、ここで自由に組み合わせて確認できます。<br>
+      ベースURL・sitecd・shopidは上の「共通設定」を使用します。
+    </p>
+
+    <div class="sim-grid">
+      <div class="field">
+        <label for="type">type（縦／横）</label>
+        <select id="type">
+          <option value="vertical">スマートガジェット（縦）</option>
+          <option value="horizontal">スマートガジェット（横）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="language">言語（language）</label>
+        <select id="language">
+          <option value="">指定なし（ブラウザ言語で自動判定）</option>
+          <option value="ja">ja（日本語）</option>
+          <option value="en">en（英語）</option>
+          <option value="zh-Hans">zh-Hans（簡体字）</option>
+          <option value="zh-Hant">zh-Hant（繁体字）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sheetctid">席タイプ（sheetctid）</label>
+        <input id="sheetctid" type="text" placeholder="例) 1（空欄=指定なし）" />
+      </div>
+      <div class="field">
+        <label for="width">ガジェット横幅（width px）</label>
+        <input id="width" type="number" placeholder="空欄=既定値" />
+      </div>
+      <div class="field">
+        <label for="height">ガジェット縦幅（height px）</label>
+        <input id="height" type="number" placeholder="空欄=既定値" />
+      </div>
+      <div class="field checkbox">
+        <input id="isfixshop" type="checkbox" />
+        <label for="isfixshop">店舗固定フラグ（isfixshop）</label>
+      </div>
+      <div class="field checkbox">
+        <input id="displayseat" type="checkbox" checked />
+        <label for="displayseat">席タイプを表示する（displayseat）</label>
+      </div>
+      <div class="field checkbox">
+        <input id="displayheader" type="checkbox" checked />
+        <label for="displayheader">ヘッダを表示する（displayheader）</label>
+      </div>
+      <div class="field checkbox">
+        <input id="displaynotice" type="checkbox" checked />
+        <label for="displaynotice">説明文を表示する（displaynotice）</label>
+      </div>
+      <div class="field checkbox">
+        <input id="displaypowerd" type="checkbox" checked />
+        <label for="displaypowerd">poweredbyを表示する（displaypowerd）</label>
+      </div>
+      <div class="field checkbox">
+        <input id="displayframe" type="checkbox" checked />
+        <label for="displayframe">枠線を表示する（displayframe）</label>
+      </div>
+    </div>
+
+    <div class="sim-toolbar">
+      <span style="font-size:12px;color:#656770;">ホスト背景:</span>
+      <div class="bg-swatches">
+        <button data-bg="#ffffff" style="background:#ffffff;" title="白"></button>
+        <button data-bg="#eeeeee" style="background:#eeeeee;" title="薄灰（#EEE）"></button>
+        <button data-bg="#232531" style="background:#232531;" title="濃色"></button>
+        <button data-bg="stripe" style="background:linear-gradient(45deg,#2b6cb0,#1a365d);" title="柄（縞模様）"></button>
+      </div>
+    </div>
+
+    <div class="url-box">
+      <input id="generatedUrl" type="text" readonly />
+      <button id="copyBtn">URLをコピー</button>
+    </div>
+
+    <div class="sim-stage" id="simStage">
+      <iframe id="simFrame" width="972" height="78" title="ガジェットプレビュー"></iframe>
+    </div>
+  </section>
+
+  <section>
+    <h2>② デフォルト状態（パラメータなし）</h2>
+    <p class="lead">クエリパラメータを一切付けない、素の埋め込み状態です。</p>
+    <div class="preset-grid" id="presetDefault"></div>
+  </section>
+
+  <section>
+    <h2>③ 多言語パターン（ja / en / zh-Hans / zh-Hant）</h2>
+    <p class="lead">
+      <code>language</code>パラメータ未指定時はブラウザ言語から自動判定されますが、ここでは明示指定して確認します。
+      店舗設定に当該言語がない場合は日本語にフォールバックする点にも注意。
+    </p>
+    <div class="preset-grid" id="presetLanguage"></div>
+  </section>
+
+  <section>
+    <h2>④ 表示項目トグル（displayXxx 系）</h2>
+    <p class="lead">各displayXxxパラメータを個別にfalseにした状態です。</p>
+    <div class="preset-grid" id="presetToggles"></div>
+  </section>
+
+  <section>
+    <h2>⑤ サイズ境界値（width / height の最小・最大）</h2>
+    <p class="lead">
+      manager画面の注記通り、縦型は縦幅(height)最小308px・横幅(width)最小200px、横型は横幅(width)最小972px・縦幅(height)最小78pxが既定値（最小値）です。
+      それより小さい値を指定した場合や、極端に大きい値を指定した場合に見た目が崩れないか確認します。
+    </p>
+    <div class="preset-grid" id="presetSize"></div>
+  </section>
+
+  <section>
+    <h2>⑥ 横型レスポンシブ（コンテナ幅 可変）</h2>
+    <p class="lead">
+      横型ガジェットは埋め込み先コンテナの幅に応じて「1行表示（916px以上）」「2段表示（600〜915px）」「縦型相当フォールバック（599px以下）」の3段階に切り替わります。
+      枠の右下をドラッグしてコンテナ幅を変え、3段階それぞれのレイアウトを確認してください。
+    </p>
+    <div class="resize-demo" id="resizeDemo">
+      <div class="hint">↘ 右下をドラッグしてコンテナ幅を変更</div>
+      <iframe id="responsiveFrame" width="100%" height="140" title="横型レスポンシブ確認"></iframe>
+    </div>
+  </section>
+
+  <section>
+    <h2>⑦ ホスト背景バリエーション（透過確認）</h2>
+    <p class="lead">
+      カード背景は半透明（<code>rgba(255,255,255,0.8)</code>）で、店舗サイトの背景色が薄く透けて見える設計です。
+      白・薄灰・濃色・柄物の背景で、カードが浮いて見えないか・文字が読みにくくなっていないか確認します。
+    </p>
+    <div class="preset-grid" id="presetHostBg"></div>
+  </section>
+
+  <section>
+    <h2>⑧ 座席タイプなし店舗・固定店舗（店舗セレクト非表示）</h2>
+    <p class="lead">
+      座席タイプが0件の店舗では、座席欄が「非表示」ではなく「disabled状態で表示」されることを確認します。
+      <code>isfixshop=true</code>では店舗セレクトが固定表示（選択不可）になることも確認します。<br>
+      下記のshopid/sheetctidはdev環境の値が既定値です。stg/prdには同じ店舗・座席タイプが存在しないため、
+      該当環境で確認する場合は値を変更してこのセクションの「反映する」を押してください。
+    </p>
+    <div class="sim-grid" style="margin-bottom:16px;">
+      <div class="field">
+        <label for="noSeatShopId">座席タイプなし店舗のshopid</label>
+        <input id="noSeatShopId" type="text" value="4688" />
+      </div>
+      <div class="field">
+        <label for="seatTypeId">座席タイプ指定のsheetctid</label>
+        <input id="seatTypeId" type="text" value="1" />
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button id="applyShopPatternBtn">このセクションだけ反映する</button>
+      </div>
+    </div>
+    <div class="preset-grid" id="presetShopPattern"></div>
+  </section>
+
+  <section>
+    <h2>⑨ 動作確認チェックリスト（見た目だけでは分からない項目）</h2>
+    <ul class="checklist">
+      <li>
+        □ 「予約する」ボタン押下で<strong>新規タブ</strong>が開くこと（iframe内で遷移しない）<br>
+        <span style="color:#eb874d;">※本ページで連続して押すとブラウザのポップアップブロックが働き、途中から開かなくなることがあります。1つのURLを単体で開いて確認してください。</span>
+      </li>
+      <li>□ 店舗セレクトを変更すると、<strong>iframe内だけ</strong>がリロードされ、親ページ（ホスト側）はスクロール位置含め影響を受けないこと</li>
+      <li>□ Tabキーでラベル→入力欄の順にフォーカスが移動すること</li>
+      <li>□ 存在しない<code>shopid</code>/<code>sitecd</code>を指定した場合、エラー画面がiframeサイズに収まった見た目になること（崩れた巨大なエラーページが出ないこと）</li>
+      <li>□ 同一ページに縦型・横型を複数同時に埋め込んでも、互いの状態が混ざらないこと</li>
+      <li>□ スマホ相当の狭いビューポートでホスト側に埋め込んだ場合、横型が<code>max-width:100%</code>で縮小表示されること</li>
+      <li>
+        □ Resty向け「Powered by」表示切替は <code>location.hostname</code> に <code>resty</code> を含むかどうかで判定しているため、
+        本ページ（GitHub Pages等）では確認不可。resty系ドメインでの別途確認が必要。
+      </li>
+    </ul>
+  </section>
+
+<script>
+(function () {
+  const DEFAULTS = {
+    // heightは min-height 指定時の実際の描画に数px足りず内部スクロールが出るため、実測値+バッファを既定値にしている
+    vertical: { width: 200, height: 312 },
+    horizontal: { width: 972, height: 82 },
+  };
+
+  const el = (id) => document.getElementById(id);
+
+  // "localhost:3000" のようにスキームが省略されていると、ブラウザが "localhost:" を
+  // カスタムプロトコルと誤認し「ユーザー操作が必要」エラーでiframeが読み込めなくなるため補完する
+  function normalizeBase(base) {
+    const trimmed = (base || '').trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `http://${trimmed}`;
+  }
+
+  function buildQuery(params) {
+    const usp = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') return;
+      usp.set(key, String(value));
+    });
+    return usp.toString();
+  }
+
+  function buildUrl(base, sitecd, shopid, type, params) {
+    const qs = buildQuery(params);
+    const path = `${normalizeBase(base).replace(/\/+$/, '')}/webrsv/gadget/${type}/${sitecd}/${shopid}`;
+    return qs ? `${path}?${qs}` : path;
+  }
+
+  // --- ① シミュレーター ---
+  function collectSimParams() {
+    const type = el('type').value;
+    return {
+      type,
+      sitecd: el('sitecd').value || 'e014999996',
+      shopid: el('shopid').value || '2032',
+      params: {
+        language: el('language').value,
+        sheetctid: el('sheetctid').value,
+        width: el('width').value,
+        height: el('height').value,
+        isfixshop: el('isfixshop').checked ? 'true' : null,
+        displayseat: el('displayseat').checked ? null : 'false',
+        displayheader: el('displayheader').checked ? null : 'false',
+        displaynotice: el('displaynotice').checked ? null : 'false',
+        displaypowerd: el('displaypowerd').checked ? null : 'false',
+        displayframe: el('displayframe').checked ? null : 'false',
+      },
+    };
+  }
+
+  function applySim() {
+    const { type, sitecd, shopid, params } = collectSimParams();
+    const base = normalizeBase(el('baseUrl').value || 'https://booking.dev.ebica.jp');
+    const url = buildUrl(base, sitecd, shopid, type, params);
+    el('generatedUrl').value = url;
+
+    const frame = el('simFrame');
+    frame.src = url;
+    const d = DEFAULTS[type];
+    frame.width = params.width || d.width;
+    frame.height = params.height || d.height;
+  }
+
+  el('copyBtn').addEventListener('click', () => {
+    el('generatedUrl').select();
+    document.execCommand('copy');
+  });
+  document.querySelectorAll('.bg-swatches button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const bg = btn.dataset.bg;
+      el('simStage').style.background =
+        bg === 'stripe'
+          ? 'repeating-linear-gradient(45deg, #2b6cb0, #2b6cb0 16px, #1a365d 16px, #1a365d 32px)'
+          : bg;
+    });
+  });
+
+  // --- プリセット共通ヘルパー ---
+  // sitecd/shopidを省略した場合は共通設定（#sitecd / #shopid）の値を使う
+  function addPreset(containerId, { caption, type, sitecd, shopid, params, width, height }) {
+    const base = normalizeBase(el('baseUrl').value || 'https://booking.dev.ebica.jp');
+    const effectiveSitecd = sitecd || el('sitecd').value || 'e014999996';
+    const effectiveShopid = shopid || el('shopid').value || '2032';
+    const url = buildUrl(base, effectiveSitecd, effectiveShopid, type, params || {});
+    const d = DEFAULTS[type];
+
+    const card = document.createElement('div');
+    // 横型は972px等そのままの幅で確認したいため、グリッドの列幅に収めず1行まるごと使う
+    card.className = type === 'horizontal' ? 'preset-card full-width' : 'preset-card';
+    card.innerHTML = `
+      <div class="caption">${caption}<br><code>${url.replace(base, '')}</code></div>
+    `;
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.width = width || d.width;
+    iframe.height = height || d.height;
+    iframe.title = caption;
+    card.appendChild(iframe);
+    el(containerId).appendChild(card);
+  }
+
+  // --- ②〜⑧ プリセットを共通設定（ベースURL/sitecd/shopid）から再生成する ---
+  function buildAllPresets() {
+    ['presetDefault', 'presetLanguage', 'presetToggles', 'presetSize', 'presetHostBg'].forEach((id) => {
+      el(id).innerHTML = '';
+    });
+
+    const sitecd = el('sitecd').value || 'e014999996';
+    const shopid = el('shopid').value || '2032';
+    const base = normalizeBase(el('baseUrl').value || 'https://booking.dev.ebica.jp');
+
+    // --- ② デフォルト状態 ---
+    addPreset('presetDefault', { caption: '縦型・パラメータなし', type: 'vertical' });
+    addPreset('presetDefault', { caption: '横型・パラメータなし', type: 'horizontal' });
+
+    // --- ③ 多言語 ---
+    ['ja', 'en', 'zh-Hans', 'zh-Hant'].forEach((lang) => {
+      addPreset('presetLanguage', {
+        caption: `縦型・language=${lang}`,
+        type: 'vertical',
+        params: { language: lang },
+      });
+    });
+    ['ja', 'en', 'zh-Hans', 'zh-Hant'].forEach((lang) => {
+      addPreset('presetLanguage', {
+        caption: `横型・language=${lang}`,
+        type: 'horizontal',
+        params: { language: lang },
+      });
+    });
+
+    // --- ④ 表示項目トグル ---
+    [
+      { key: 'displayheader', label: 'ヘッダ非表示' },
+      { key: 'displaynotice', label: '説明文非表示' },
+      { key: 'displaypowerd', label: 'poweredby非表示' },
+      { key: 'displayframe', label: '枠線非表示' },
+      { key: 'displayseat', label: '席タイプ非表示' },
+    ].forEach(({ key, label }) => {
+      addPreset('presetToggles', {
+        caption: `横型・${label}（${key}=false）`,
+        type: 'horizontal',
+        params: { [key]: 'false' },
+      });
+    });
+    addPreset('presetToggles', {
+      caption: '縦型・店舗固定（isfixshop=true）',
+      type: 'vertical',
+      params: { isfixshop: 'true' },
+    });
+
+    // --- ⑤ サイズ境界値 ---
+    addPreset('presetSize', {
+      caption: '縦型・最小サイズ（200×308）',
+      type: 'vertical',
+      params: { width: 200, height: 308 },
+    });
+    addPreset('presetSize', {
+      caption: '縦型・指定サイズより小さい値（150×200 ※仕様外の値）',
+      type: 'vertical',
+      params: { width: 150, height: 200 },
+      width: 150,
+      height: 200,
+    });
+    addPreset('presetSize', {
+      caption: '縦型・大きいサイズ（320×500）',
+      type: 'vertical',
+      params: { width: 320, height: 500 },
+      width: 320,
+      height: 500,
+    });
+    addPreset('presetSize', {
+      caption: '横型・最小サイズ（972×78）',
+      type: 'horizontal',
+      params: { width: 972, height: 78 },
+    });
+    addPreset('presetSize', {
+      caption: '横型・狭い幅（席タイプ表示で2段/縦型フォールバック確認用, 500×78）',
+      type: 'horizontal',
+      params: { width: 500 },
+      width: 500,
+      height: 312,
+    });
+    addPreset('presetSize', {
+      caption: '横型・大きいサイズ（1400×100）',
+      type: 'horizontal',
+      params: { width: 1400, height: 100 },
+      width: 1400,
+      height: 100,
+    });
+
+    // --- ⑥ 横型レスポンシブ ---
+    el('responsiveFrame').src = buildUrl(base, sitecd, shopid, 'horizontal', {});
+
+    // --- ⑦ ホスト背景バリエーション ---
+    [
+      { cls: 'bg-white', label: '白背景' },
+      { cls: 'bg-light', label: '薄灰背景（#EEE）' },
+      { cls: 'bg-dark', label: '濃色背景' },
+      { cls: 'bg-color', label: '柄物背景' },
+    ].forEach(({ cls, label }) => {
+      const url = buildUrl(base, sitecd, shopid, 'horizontal', {});
+      const card = document.createElement('div');
+      card.className = 'preset-card full-width';
+      card.innerHTML = `<div class="caption">${label}</div>`;
+      const host = document.createElement('div');
+      host.className = `host-sample ${cls}`;
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.width = DEFAULTS.horizontal.width;
+      iframe.height = DEFAULTS.horizontal.height;
+      iframe.title = label;
+      host.appendChild(iframe);
+      card.appendChild(host);
+      el('presetHostBg').appendChild(card);
+    });
+
+    buildShopPatternPresets();
+  }
+
+  // --- ⑧ 座席タイプなし店舗・固定店舗（shopid/sheetctidは専用の入力欄の値を使う。stg/prdでは要変更）
+  // 入力欄の値だけ変えたいときに全セクションを再生成せず済むよう、セクション単位で呼べる関数に切り出している
+  function buildShopPatternPresets() {
+    el('presetShopPattern').innerHTML = '';
+
+    const noSeatShopId = el('noSeatShopId').value || '4688';
+    const seatTypeId = el('seatTypeId').value || '1';
+    addPreset('presetShopPattern', {
+      caption: `座席タイプなし店舗（shopid=${noSeatShopId}）・disabled表示確認`,
+      type: 'horizontal',
+      shopid: noSeatShopId,
+    });
+    addPreset('presetShopPattern', {
+      caption: '店舗固定（isfixshop=true）・店舗セレクトが選択不可になること',
+      type: 'horizontal',
+      params: { isfixshop: 'true' },
+      height: 114,
+    });
+    addPreset('presetShopPattern', {
+      caption: `座席タイプ指定（sheetctid=${seatTypeId}）`,
+      type: 'horizontal',
+      params: { sheetctid: seatTypeId },
+    });
+  }
+
+  el('applyShopPatternBtn').addEventListener('click', buildShopPatternPresets);
+
+  el('applyBtn').addEventListener('click', () => {
+    applySim();
+    buildAllPresets();
+  });
+
+  applySim();
+  buildAllPresets();
+})();
+</script>
+</body>
+</html>
