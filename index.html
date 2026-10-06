@@ -260,6 +260,7 @@
     </div>
 
     <div class="sim-toolbar">
+      <button class="primary" id="applySimBtn">反映する</button>
       <span style="font-size:12px;color:#656770;">ホスト背景:</span>
       <div class="bg-swatches">
         <button data-bg="#ffffff" style="background:#ffffff;" title="白"></button>
@@ -442,6 +443,7 @@
     frame.height = params.height || d.height;
   }
 
+  el('applySimBtn').addEventListener('click', applySim);
   el('copyBtn').addEventListener('click', () => {
     el('generatedUrl').select();
     document.execCommand('copy');
