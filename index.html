@@ -318,7 +318,7 @@
     </p>
     <div class="resize-demo" id="resizeDemo">
       <div class="hint">↘ 右下をドラッグしてコンテナ幅を変更</div>
-      <iframe id="responsiveFrame" width="100%" height="140" title="横型レスポンシブ確認"></iframe>
+      <iframe id="responsiveFrame" width="100%" height="310" title="横型レスポンシブ確認"></iframe>
     </div>
   </section>
 
@@ -378,9 +378,8 @@
 <script>
 (function () {
   const DEFAULTS = {
-    // heightは min-height 指定時の実際の描画に数px足りず内部スクロールが出るため、実測値+バッファを既定値にしている
-    vertical: { width: 200, height: 312 },
-    horizontal: { width: 972, height: 82 },
+    vertical: { width: 200, height: 308 },
+    horizontal: { width: 972, height: 78 },
   };
 
   const el = (id) => document.getElementById(id);
@@ -562,7 +561,7 @@
       type: 'horizontal',
       params: { width: 500 },
       width: 500,
-      height: 312,
+      height: 308,
     });
     addPreset('presetSize', {
       caption: '横型・大きいサイズ（1400×100）',
@@ -617,7 +616,6 @@
       caption: '店舗固定（isfixshop=true）・店舗セレクトが選択不可になること',
       type: 'horizontal',
       params: { isfixshop: 'true' },
-      height: 114,
     });
     addPreset('presetShopPattern', {
       caption: `座席タイプ指定（sheetctid=${seatTypeId}）`,
