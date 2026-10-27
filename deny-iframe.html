@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>iframe 拒否 確認ページ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    color: #232531;
+    background: #fafafa;
+  }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  h2 { font-size: 17px; margin: 0 0 8px; border-left: 4px solid #eb874d; padding-left: 8px; }
+  .lead { color: #656770; font-size: 13px; margin: 0 0 16px; line-height: 1.7; }
+  section {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 16px 20px 24px;
+    margin-bottom: 24px;
+  }
+  .sim-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px 16px;
+    margin-bottom: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; font-weight: bold; color: #656770; }
+  .field input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .hint { font-size: 11px; color: #97a0a9; }
+  button {
+    cursor: pointer;
+    border: 1px solid #eb874d;
+    background: #eb874d;
+    color: #fff;
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 16px;
+  }
+  .card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; background: #fff; min-width: 0; }
+  .card .title { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 2px 8px;
+    margin-left: 6px;
+    color: #fff;
+  }
+  .badge.deny { background: #c53030; }
+  .badge.allow { background: #2f855a; }
+  .card .url {
+    font-size: 11px;
+    color: #656770;
+    word-break: break-all;
+    margin-bottom: 8px;
+  }
+  .card .expect { font-size: 12px; margin-bottom: 8px; }
+  iframe {
+    display: block;
+    width: 100%;
+    height: 260px;
+    border: 2px dashed #b0b0b0;
+    background: repeating-linear-gradient(45deg, #fff, #fff 10px, #f3f3f3 10px, #f3f3f3 20px);
+  }
+  ul { font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+  <h1>iframe 拒否 確認ページ</h1>
+  <p class="lead">
+    ガジェット以外のページは <code>X-Frame-Options: DENY</code> / <code>Content-Security-Policy: frame-ancestors 'none'</code>
+    により、iframe に表示されないことを確認するページです。<br />
+    異なるオリジンのため、ブラウザはブロック結果をスクリプトに通知しません。<strong>枠が空白（または拒否アイコン）になること</strong>を目視で確認してください。
+  </p>
+
+  <section>
+    <h2>共通設定</h2>
+    <div class="sim-grid">
+      <div class="field">
+        <label for="baseUrl">ベースURL</label>
+        <input id="baseUrl" type="text" value="https://booking.dev.ebica.jp" />
+        <span class="hint">booking.dev.ebica.jp（dev） / booking.stg.ebica.jp（stg） / booking.ebica.jp（prd）</span>
+      </div>
+      <div class="field">
+        <label for="sitecd">sitecd</label>
+        <input id="sitecd" type="text" value="e014999996" />
+      </div>
+      <div class="field">
+        <label for="shopid">shopid</label>
+        <input id="shopid" type="text" value="2032" />
+      </div>
+    </div>
+    <button id="applyBtn">反映して再読み込み</button>
+  </section>
+
+  <section>
+    <h2>確認対象</h2>
+    <div class="grid" id="cards"></div>
+  </section>
+
+  <section>
+    <h2>確認ポイント</h2>
+    <ul>
+      <li>拒否対象（赤バッジ）の枠が空白のままで、予約画面が表示されない。</li>
+      <li>許可対象（緑バッジ・ガジェット）の枠にはガジェットが表示される。</li>
+      <li>
+        DevTools の Console に
+        <code>Refused to display '...' in a frame because it set 'X-Frame-Options' to 'deny'.</code>
+        または <code>Refused to frame '...' because an ancestor violates the following Content Security Policy directive: "frame-ancestors 'none'".</code>
+        が出ている。
+      </li>
+      <li>DevTools の Network でレスポンスヘッダーを見ると、拒否対象にだけ上記2ヘッダーが付いている。</li>
+    </ul>
+  </section>
+
+<script>
+  const el = (id) => document.getElementById(id);
+
+  function normalizeBase(value) {
+    const trimmed = value.trim().replace(/\/+$/, '');
+    return /^https?:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;
+  }
+
+  // deny: true の場合は iframe で表示されないことを期待する
+  const TARGETS = [
+    { title: '空席予約（search）', path: 'search', deny: true },
+    { title: '空席予約（vacant）', path: 'vacant', deny: true },
+    { title: 'プラン予約（plan_search）', path: 'plan_search', deny: true },
+    { title: 'プラン予約（plan）', path: 'plan', deny: true },
+    { title: 'ガジェット（縦型）', path: 'gadget/vertical', deny: false },
+    { title: 'ガジェット（横型）', path: 'gadget/horizontal', deny: false },
+  ];
+
+  function render() {
+    const base = normalizeBase(el('baseUrl').value || 'https://booking.dev.ebica.jp');
+    const sitecd = el('sitecd').value || 'e014999996';
+    const shopid = el('shopid').value || '2032';
+    const cards = el('cards');
+    cards.innerHTML = '';
+
+    TARGETS.forEach((t) => {
+      const url = `${base}/webrsv/${t.path}/${sitecd}/${shopid}`;
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = t.title;
+      const badge = document.createElement('span');
+      badge.className = `badge ${t.deny ? 'deny' : 'allow'}`;
+      badge.textContent = t.deny ? '拒否' : '許可';
+      title.appendChild(badge);
+
+      const urlEl = document.createElement('div');
+      urlEl.className = 'url';
+      urlEl.textContent = url;
+
+      const expect = document.createElement('div');
+      expect.className = 'expect';
+      expect.textContent = t.deny ? '期待: 枠が空白（表示されない）' : '期待: ガジェットが表示される';
+
+      const frame = document.createElement('iframe');
+      frame.title = t.title;
+      frame.src = url;
+
+      card.append(title, urlEl, expect, frame);
+      cards.appendChild(card);
+    });
+  }
+
+  el('applyBtn').addEventListener('click', render);
+  render();
+</script>
+</body>
+</html>
