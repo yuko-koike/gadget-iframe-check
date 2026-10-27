@@ -109,6 +109,10 @@
         <label for="shopid">shopid</label>
         <input id="shopid" type="text" value="2032" />
       </div>
+      <div class="field">
+        <label for="planid">planid（planのみ使用）</label>
+        <input id="planid" type="text" value="2754" />
+      </div>
     </div>
     <button id="applyBtn">反映して再読み込み</button>
   </section>
@@ -146,7 +150,7 @@
     { title: '空席予約（search）', path: 'search', deny: true },
     { title: '空席予約（vacant）', path: 'vacant', deny: true },
     { title: 'プラン予約（plan_search）', path: 'plan_search', deny: true },
-    { title: 'プラン予約（plan）', path: 'plan', deny: true },
+    { title: 'プラン予約（plan）', path: 'plan', deny: true, usePlanid: true },
     { title: 'ガジェット（縦型）', path: 'gadget/vertical', deny: false },
     { title: 'ガジェット（横型）', path: 'gadget/horizontal', deny: false },
   ];
@@ -155,11 +159,12 @@
     const base = normalizeBase(el('baseUrl').value || 'https://booking.dev.ebica.jp');
     const sitecd = el('sitecd').value || 'e014999996';
     const shopid = el('shopid').value || '2032';
+    const planid = el('planid').value || '2754';
     const cards = el('cards');
     cards.innerHTML = '';
 
     TARGETS.forEach((t) => {
-      const url = `${base}/webrsv/${t.path}/${sitecd}/${shopid}`;
+      const url = `${base}/webrsv/${t.path}/${sitecd}/${shopid}${t.usePlanid ? `/${planid}` : ''}`;
       const card = document.createElement('div');
       card.className = 'card';
 
